@@ -14,14 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 
 /*
  * NOTE : =============================================================
@@ -149,10 +142,13 @@ public class AddressBook {
     private static final int PERSON_DATA_INDEX_EMAIL = 2;
     private static final int PERSON_DATA_INDEX_DOB = 3;
 
+    private enum PersonProperty {NAME, EMAIL, PHONE};
+    private static final ArrayList<HashMap<PersonProperty, String>> NEWLIST = new ArrayList<>();
+
     /**
      * The number of data elements for a single person.
      */
-    private static final int PERSON_DATA_COUNT = 4;
+    private static final int PERSON_DATA_COUNT = 3;
 
     /**
      * Offset required to convert between 1-indexing and 0-indexing.COMMAND_
@@ -422,16 +418,22 @@ public class AddressBook {
     private static String executeAddPerson(String commandArgs) {
         // try decoding a person from the raw args
         final Optional<String[]> decodeResult = decodePersonFromString(commandArgs);
+        final Optional<HashMap<PersonProperty, String>> decodeResult2 = decodePersonFromString2(commandArgs);
 
         // checks if args are valid (decode result will not be present if the person is invalid)
         if (!decodeResult.isPresent()) {
             return getMessageForInvalidCommandInput(COMMAND_ADD_WORD, getUsageInfoForAddCommand());
         }
-
+        if (!decodeResult2.isPresent()) {
+            return getMessageForInvalidCommandInput(COMMAND_ADD_WORD, getUsageInfoForAddCommand());
+        }
         // add the person as specified
         final String[] personToAdd = decodeResult.get();
         addPersonToAddressBook(personToAdd);
-        return getMessageForSuccessfulAddPerson(personToAdd);
+        final HashMap<PersonProperty, String> personToAdd2 = decodeResult2.get();
+        addPersonToAddressBook2(personToAdd2);
+
+        return getMessageForSuccessfulAddPerson2(personToAdd2);
     }
 
     /**
@@ -444,6 +446,10 @@ public class AddressBook {
     private static String getMessageForSuccessfulAddPerson(String[] addedPerson) {
         return String.format(MESSAGE_ADDED,
                 getNameFromPerson(addedPerson), getPhoneFromPerson(addedPerson), getEmailFromPerson(addedPerson));
+    }
+    private static String getMessageForSuccessfulAddPerson2(HashMap<PersonProperty, String> addedPerson) {
+        return String.format(MESSAGE_ADDED,
+                addedPerson.get(PersonProperty.NAME), addedPerson.get(PersonProperty.PHONE), addedPerson.get(PersonProperty.EMAIL));
     }
 
     /**
@@ -773,6 +779,15 @@ public class AddressBook {
             exitProgram();
         }
     }
+    private static void savePersonsToFile2(ArrayList<HashMap<PersonProperty, String>> persons, String filePath) {
+        final ArrayList<String> linesToWrite = encodePersonsToStrings2(persons);
+        try {
+            Files.write(Paths.get(storageFilePath), linesToWrite);
+        } catch (IOException ioe) {
+            showToUser(String.format(MESSAGE_ERROR_WRITING_TO_FILE, filePath));
+            exitProgram();
+        }
+    }
 
 
     /*
@@ -789,6 +804,10 @@ public class AddressBook {
     private static void addPersonToAddressBook(String[] person) {
         ALL_PERSONS.add(person);
         savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+    }
+    private static void addPersonToAddressBook2(HashMap<PersonProperty, String> person) {
+        NEWLIST.add(person);
+        savePersonsToFile2(getAllPersonsInAddressBook2(), storageFilePath);
     }
 
     /**
@@ -810,6 +829,9 @@ public class AddressBook {
      */
     private static ArrayList<String[]> getAllPersonsInAddressBook() {
         return ALL_PERSONS;
+    }
+    private static ArrayList<HashMap<PersonProperty, String>> getAllPersonsInAddressBook2() {
+        return NEWLIST;
     }
 
     /**
@@ -877,7 +899,15 @@ public class AddressBook {
         person[PERSON_DATA_INDEX_NAME] = name;
         person[PERSON_DATA_INDEX_PHONE] = phone;
         person[PERSON_DATA_INDEX_EMAIL] = email;
-       // person[PERSON_DATA_INDEX_DOB] = dob;
+        // person[PERSON_DATA_INDEX_DOB] = dob;
+        return person;
+    }
+    private static HashMap<PersonProperty, String> makePersonFromData2(String name, String phone, String email) {
+        final HashMap<PersonProperty,String> person = new HashMap<>();
+        person.put(PersonProperty.NAME, name);
+        person.put(PersonProperty.EMAIL, email);
+        person.put(PersonProperty.PHONE, phone);
+        // person[PERSON_DATA_INDEX_DOB] = dob;
         return person;
     }
 
@@ -891,6 +921,10 @@ public class AddressBook {
         return String.format(PERSON_STRING_REPRESENTATION,
                 getNameFromPerson(person), getPhoneFromPerson(person), getEmailFromPerson(person));
     }
+    private static String encodePersonToString2(HashMap<PersonProperty, String> person) {
+        return String.format(PERSON_STRING_REPRESENTATION,
+                person.get(PersonProperty.NAME), person.get(PersonProperty.PHONE), person.get(PersonProperty.EMAIL));
+    }
 
     /**
      * Encodes list of persons into list of decodable and readable string representations.
@@ -902,6 +936,13 @@ public class AddressBook {
         final ArrayList<String> encoded = new ArrayList<>();
         for (String[] person : persons) {
             encoded.add(encodePersonToString(person));
+        }
+        return encoded;
+    }
+    private static ArrayList<String> encodePersonsToStrings2(ArrayList<HashMap<PersonProperty, String>> persons) {
+        final ArrayList<String> encoded = new ArrayList<>();
+        for (HashMap<PersonProperty,String> person : persons) {
+            encoded.add(encodePersonToString2(person));
         }
         return encoded;
     }
@@ -933,6 +974,20 @@ public class AddressBook {
         );
         // check that the constructed person is valid
         return isPersonDataValid(decodedPerson) ? Optional.of(decodedPerson) : Optional.empty();
+    }
+    private static Optional<HashMap<PersonProperty, String>> decodePersonFromString2(String encoded) {
+        // check that we can extract the parts of a person from the encoded string
+        if (!isPersonDataExtractableFrom(encoded)) {
+            return Optional.empty();
+        }
+        final HashMap<PersonProperty, String> decodedPerson = makePersonFromData2(
+                extractNameFromPersonString(encoded),
+                extractPhoneFromPersonString(encoded),
+                extractEmailFromPersonString(encoded)
+                //extractDOBFromPersonString(encoded)
+        );
+        // check that the constructed person is valid
+        return isPersonDataValid2(decodedPerson) ? Optional.of(decodedPerson) : Optional.empty();
     }
 
     /**
@@ -1052,7 +1107,11 @@ public class AddressBook {
                 && isPersonPhoneValid(person[PERSON_DATA_INDEX_PHONE])
                 && isPersonEmailValid(person[PERSON_DATA_INDEX_EMAIL]);
     }
-
+    private static boolean isPersonDataValid2(HashMap<PersonProperty, String> person) {
+        return  isPersonNameValid(person.get(PersonProperty.NAME))
+                && isPersonPhoneValid(person.get(PersonProperty.PHONE))
+                && isPersonEmailValid(person.get(PersonProperty.EMAIL));
+    }
     /*
      * NOTE : =============================================================
      * Note the use of 'regular expressions' in the method below.
