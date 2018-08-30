@@ -140,9 +140,9 @@ public class AddressBook {
     private static final int PERSON_DATA_INDEX_NAME = 0;
     private static final int PERSON_DATA_INDEX_PHONE = 1;
     private static final int PERSON_DATA_INDEX_EMAIL = 2;
-    private static final int PERSON_DATA_INDEX_DOB = 3;
+    //private static final int PERSON_DATA_INDEX_DOB = 3;
 
-    private enum PersonProperty {NAME, EMAIL, PHONE};
+    private enum PersonProperty {NAME, EMAIL, PHONE}
     private static final ArrayList<HashMap<PersonProperty, String>> NEWLIST = new ArrayList<>();
 
     /**
@@ -189,7 +189,7 @@ public class AddressBook {
      * those persons from this list.
      */
     private static ArrayList<String[]> latestPersonListingView = getAllPersonsInAddressBook(); // initial view is of all
-
+    private static ArrayList<HashMap<PersonProperty, String>> latestPersonListingView2 = getAllPersonsInAddressBook2();
     /**
      * The path to the file used for storing person data.
      */
@@ -372,9 +372,9 @@ public class AddressBook {
         case COMMAND_ADD_WORD:
             return executeAddPerson(commandArgs);
         case COMMAND_FIND_WORD:
-            return executeFindPersons(commandArgs.toUpperCase());
+            return executeFindPersons2(commandArgs.toUpperCase());
         case COMMAND_LIST_WORD:
-            return executeListAllPersonsInAddressBook();
+            return executeListAllPersonsInAddressBook2();
         case COMMAND_DELETE_WORD:
             return executeDeletePerson(commandArgs);
         case COMMAND_CLEAR_WORD:
@@ -465,6 +465,12 @@ public class AddressBook {
         showToUser(personsFound);
         return getMessageForPersonsDisplayedSummary(personsFound);
     }
+    private static String executeFindPersons2(String commandArgs) {
+        final Set<String> keywords = extractKeywordsFromFindPersonArgs(commandArgs);
+        final ArrayList<HashMap<PersonProperty, String>> personsFound = getPersonsWithNameContainingAnyKeyword2(keywords);
+        showToUser2(personsFound);
+        return getMessageForPersonsDisplayedSummary2(personsFound);
+    }
 
     /**
      * Constructs a feedback message to summarise an operation that displayed a listing of persons.
@@ -473,6 +479,9 @@ public class AddressBook {
      * @return summary message for persons displayed
      */
     private static String getMessageForPersonsDisplayedSummary(ArrayList<String[]> personsDisplayed) {
+        return String.format(MESSAGE_PERSONS_FOUND_OVERVIEW, personsDisplayed.size());
+    }
+    private static String getMessageForPersonsDisplayedSummary2(ArrayList<HashMap<PersonProperty, String>> personsDisplayed) {
         return String.format(MESSAGE_PERSONS_FOUND_OVERVIEW, personsDisplayed.size());
     }
 
@@ -496,6 +505,16 @@ public class AddressBook {
         final ArrayList<String[]> matchedPersons = new ArrayList<>();
         for (String[] person : getAllPersonsInAddressBook()) {
             final Set<String> wordsInName = new HashSet<>(splitByWhitespace(getNameFromPerson(person)));
+            if (!Collections.disjoint(wordsInName, keywords)) {
+                matchedPersons.add(person);
+            }
+        }
+        return matchedPersons;
+    }
+    private static ArrayList<HashMap<PersonProperty, String>> getPersonsWithNameContainingAnyKeyword2(Collection<String> keywords) {
+        final ArrayList<HashMap<PersonProperty, String>> matchedPersons = new ArrayList<>();
+        for (HashMap<PersonProperty, String> person : getAllPersonsInAddressBook2()) {
+            final Set<String> wordsInName = new HashSet<>(splitByWhitespace(person.get(PersonProperty.NAME)));
             if (!Collections.disjoint(wordsInName, keywords)) {
                 matchedPersons.add(person);
             }
@@ -588,6 +607,11 @@ public class AddressBook {
         showToUser(toBeDisplayed);
         return getMessageForPersonsDisplayedSummary(toBeDisplayed);
     }
+    private static String executeListAllPersonsInAddressBook2() {
+        ArrayList<HashMap<PersonProperty, String>> toBeDisplayed = getAllPersonsInAddressBook2();
+        showToUser2(toBeDisplayed);
+        return getMessageForPersonsDisplayedSummary2(toBeDisplayed);
+    }
 
     /**
      * Requests to terminate the program.
@@ -644,6 +668,11 @@ public class AddressBook {
         showToUser(listAsString);
         updateLatestViewedPersonListing(persons);
     }
+    private static void showToUser2(ArrayList<HashMap<PersonProperty, String>> persons) {
+        String listAsString = getDisplayString2(persons);
+        showToUser(listAsString);
+        updateLatestViewedPersonListing2(persons);
+    }
 
     /**
      * Returns the display string representation of the list of persons.
@@ -659,6 +688,18 @@ public class AddressBook {
         }
         return messageAccumulator.toString();
     }
+    private static String getDisplayString2(ArrayList<HashMap<PersonProperty, String>> persons) {
+        final StringBuilder messageAccumulator = new StringBuilder();
+        for (int i = 0; i < persons.size(); i++) {
+            final HashMap<PersonProperty, String> person = persons.get(i);
+            final int displayIndex = i + DISPLAYED_INDEX_OFFSET;
+            messageAccumulator.append('\t')
+                    .append(getIndexedPersonListElementMessage2(displayIndex, person))
+                    .append(LS);
+        }
+        return messageAccumulator.toString();
+    }
+
 
     /**
      * Constructs a prettified listing element message to represent a person and their data.
@@ -670,7 +711,9 @@ public class AddressBook {
     private static String getIndexedPersonListElementMessage(int visibleIndex, String[] person) {
         return String.format(MESSAGE_DISPLAY_LIST_ELEMENT_INDEX, visibleIndex) + getMessageForFormattedPersonData(person);
     }
-
+    private static String getIndexedPersonListElementMessage2(int visibleIndex, HashMap<PersonProperty, String> person) {
+        return String.format(MESSAGE_DISPLAY_LIST_ELEMENT_INDEX, visibleIndex) + getMessageForFormattedPersonData2(person);
+    }
     /**
      * Constructs a prettified string to show the user a person's data.
      *
@@ -681,6 +724,10 @@ public class AddressBook {
         return String.format(MESSAGE_DISPLAY_PERSON_DATA,
                 getNameFromPerson(person), getPhoneFromPerson(person), getEmailFromPerson(person));
     }
+    private static String getMessageForFormattedPersonData2(HashMap<PersonProperty, String> person) {
+        return String.format(MESSAGE_DISPLAY_PERSON_DATA,
+                person.get(PersonProperty.NAME), person.get(PersonProperty.PHONE), person.get(PersonProperty.EMAIL));
+    }
 
     /**
      * Updates the latest person listing view the user has seen.
@@ -690,6 +737,10 @@ public class AddressBook {
     private static void updateLatestViewedPersonListing(ArrayList<String[]> newListing) {
         // clone to insulate from future changes to arg list
         latestPersonListingView = new ArrayList<>(newListing);
+    }
+    private static void updateLatestViewedPersonListing2(ArrayList<HashMap<PersonProperty, String>> newListing) {
+        // clone to insulate from future changes to arg list
+        latestPersonListingView2 = new ArrayList<>(newListing);
     }
 
     /**
